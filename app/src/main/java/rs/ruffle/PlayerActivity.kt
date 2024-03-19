@@ -1,29 +1,27 @@
 package rs.ruffle
 
-import android.annotation.SuppressLint
 import android.content.Intent
-import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Build.VERSION_CODES
 import android.os.Bundle
-import android.view.Menu
-import android.view.MenuItem
-import android.view.MotionEvent
-import android.view.View
 import android.view.ViewGroup
 import android.view.Window
 import android.view.WindowManager
-import android.widget.Button
-import android.widget.PopupMenu
-import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.core.view.ViewCompat
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowColumn
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.google.androidgamesdk.GameActivity
 import java.io.DataInputStream
 import java.io.IOException
+import rs.ruffle.ui.theme.RuffleTheme
 
 class PlayerActivity : GameActivity() {
     @Suppress("unused")
@@ -85,6 +83,8 @@ class PlayerActivity : GameActivity() {
     private val surfaceHeight: Int
         get() = mSurfaceView.height
 
+    private var contextMenuItems = mutableStateListOf<ContextMenuItem>()
+
     private external fun keydown(keyCode: Byte, keyChar: Char)
     private external fun keyup(keyCode: Byte, keyChar: Char)
     private external fun requestContextMenu()
@@ -93,91 +93,30 @@ class PlayerActivity : GameActivity() {
 
     @Suppress("unused")
     // Used by Rust
-    private fun showContextMenu(items: Array<String>) {
+    private fun setContextMenu(items: Array<String>) {
         runOnUiThread {
-            val popup = PopupMenu(this, findViewById(R.id.button_cm))
-            val menu = popup.menu
-            if (Build.VERSION.SDK_INT >= VERSION_CODES.P) {
-                menu.setGroupDividerEnabled(true)
-            }
-            var group = 1
+            contextMenuItems.clear()
             for (i in items.indices) {
                 val elements = items[i].split(" ".toRegex(), limit = 4).toTypedArray()
                 val enabled = elements[0].toBoolean()
                 val separatorBefore = elements[1].toBoolean()
                 val checked = elements[2].toBoolean()
                 val caption = elements[3]
-                if (separatorBefore) group += 1
-                val item = menu.add(group, i, Menu.NONE, caption)
-                item.setEnabled(enabled)
-                if (checked) {
-                    item.setCheckable(true)
-                    item.setChecked(true)
-                }
-            }
-            popup.setOnMenuItemClickListener { item: MenuItem ->
-                runContextMenuCallback(item.itemId)
-                true
-            }
-            popup.setOnDismissListener { clearContextMenu() }
-            popup.show()
-        }
-    }
-
-    override fun onCreateSurfaceView() {
-        val inflater = layoutInflater
-
-        @SuppressLint("InflateParams")
-        val layout = inflater.inflate(R.layout.keyboard, null) as ConstraintLayout
-
-        contentViewId = ViewCompat.generateViewId()
-        layout.id = contentViewId
-        setContentView(layout)
-        mSurfaceView = InputEnabledSurfaceView(this)
-        val placeholder = findViewById<View>(R.id.placeholder)
-        val pars = placeholder.layoutParams as ConstraintLayout.LayoutParams
-        val parent = placeholder.parent as ViewGroup
-        val index = parent.indexOfChild(placeholder)
-        parent.removeView(placeholder)
-        parent.addView(mSurfaceView, index)
-        mSurfaceView.setLayoutParams(pars)
-        val keys = gatherAllDescendantsOfType<Button>(
-            layout.getViewById(R.id.keyboard),
-            Button::class.java
-        )
-        for (b in keys) {
-            b.setOnTouchListener { view: View, motionEvent: MotionEvent ->
-                val tag = view.tag as String
-                val spl = tag.split(" ".toRegex(), limit = 2).toTypedArray()
-                val by = spl[0].toByte()
-                val c: Char = if (spl.size > 1) spl[1][0] else Char.MIN_VALUE
-                if (motionEvent.action == MotionEvent.ACTION_DOWN) keydown(by, c)
-                if (motionEvent.action == MotionEvent.ACTION_UP) keyup(by, c)
-                view.performClick()
-                false
+                contextMenuItems.add(
+                    ContextMenuItem(
+                        text = caption,
+                        separatorBefore = separatorBefore,
+                        enabled = enabled,
+                        checked = checked,
+                        onClick = {
+                            runContextMenuCallback(i)
+                            clearContextMenu()
+                            contextMenuItems.clear()
+                        }
+                    )
+                )
             }
         }
-        layout.findViewById<View>(R.id.button_kb).setOnClickListener {
-            val keyboard = layout.getViewById(R.id.keyboard)
-            if (keyboard.visibility == View.VISIBLE) {
-                keyboard.visibility = View.GONE
-            } else {
-                keyboard.visibility = View.VISIBLE
-            }
-        }
-        layout.findViewById<View>(R.id.button_cm)
-            .setOnClickListener { requestContextMenu() }
-        layout.requestLayout()
-        layout.requestFocus()
-        mSurfaceView.holder.addCallback(this)
-        ViewCompat.setOnApplyWindowInsetsListener(mSurfaceView, this)
-    }
-
-    override fun onConfigurationChanged(newConfig: Configuration) {
-        super.onConfigurationChanged(newConfig)
-        val keyboard = findViewById<View>(R.id.keyboard)
-        val isLandscape = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
-        keyboard.visibility = if (isLandscape) View.GONE else View.VISIBLE
     }
 
     private fun hideSystemUI() {
@@ -200,6 +139,7 @@ class PlayerActivity : GameActivity() {
             WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 
+    @OptIn(ExperimentalLayoutApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         // When true, the app will fit inside any system UI windows.
         // When false, we render behind any system UI windows.
@@ -211,6 +151,33 @@ class PlayerActivity : GameActivity() {
         //     IME_ACTION_NONE, IME_FLAG_NO_FULLSCREEN );
         requestNoStatusBarFeature()
         super.onCreate(savedInstanceState)
+
+        (mSurfaceView.parent as ViewGroup).removeView(mSurfaceView)
+
+        setContent {
+            RuffleTheme {
+                FlowColumn(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    AndroidView(
+                        modifier = Modifier.weight(1f),
+                        factory = { mSurfaceView }
+                    )
+                    OnScreenControls(
+                        onKeyClick = { keyCode: Byte, keyChar: Char ->
+                            keydown(keyCode, keyChar)
+                            keyup(keyCode, keyChar)
+                        },
+                        onShowContextMenu = { requestContextMenu() },
+                        onHideContextMenu = {
+                            clearContextMenu()
+                            contextMenuItems.clear()
+                        },
+                        contextMenuItems = contextMenuItems
+                    )
+                }
+            }
+        }
     }
 
     // Used by Rust
@@ -239,17 +206,5 @@ class PlayerActivity : GameActivity() {
 
         @JvmStatic
         private external fun nativeInit()
-
-        private fun <T> gatherAllDescendantsOfType(v: View, t: Class<*>): List<T> {
-            val result: MutableList<T> = ArrayList()
-            @Suppress("UNCHECKED_CAST")
-            if (t.isInstance(v)) result.add(v as T)
-            if (v is ViewGroup) {
-                for (i in 0 until v.childCount) {
-                    result.addAll(gatherAllDescendantsOfType(v.getChildAt(i), t))
-                }
-            }
-            return result
-        }
     }
 }
