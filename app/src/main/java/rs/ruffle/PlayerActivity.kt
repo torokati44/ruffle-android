@@ -16,7 +16,6 @@ import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.PopupMenu
-import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -116,10 +115,10 @@ class PlayerActivity : GameActivity() {
                     item.setChecked(true)
                 }
             }
-            val resourceIdFullScreen: Int = items.size + 1
-            menu.add(group, resourceIdFullScreen, Menu.NONE, "Exit")
+            val resourceIdExit: Int = items.size + 1
+            menu.add(group, resourceIdExit, Menu.NONE, "Exit")
             popup.setOnMenuItemClickListener { item: MenuItem ->
-                if(item.itemId ==resourceIdFullScreen){
+                if(item.itemId ==resourceIdExit){
                     finish()
                     true
                 }else{
