@@ -118,10 +118,10 @@ class PlayerActivity : GameActivity() {
             val resourceIdExit: Int = items.size + 1
             menu.add(group, resourceIdExit, Menu.NONE, "Exit")
             popup.setOnMenuItemClickListener { item: MenuItem ->
-                if(item.itemId ==resourceIdExit){
+                if (item.itemId == resourceIdExit) {
                     finish()
                     true
-                }else{
+                } else {
                     runContextMenuCallback(item.itemId)
                     true
                 }
