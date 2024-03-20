@@ -16,7 +16,7 @@ import android.view.Window
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.PopupMenu
-import androidx.appcompat.app.ActionBar
+import androidx.activity.OnBackPressedCallback
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -117,10 +117,10 @@ class PlayerActivity : GameActivity() {
                 }
             }
             val resourceIdFullScreen: Int = items.size + 1
-            menu.add(group, resourceIdFullScreen, Menu.NONE, "Toggle ActionBar")
+            menu.add(group, resourceIdFullScreen, Menu.NONE, "Exit")
             popup.setOnMenuItemClickListener { item: MenuItem ->
                 if(item.itemId ==resourceIdFullScreen){
-                    toggleActionBar()
+                    finish()
                     true
                 }else{
                     runContextMenuCallback(item.itemId)
@@ -218,6 +218,7 @@ class PlayerActivity : GameActivity() {
         // super.setImeEditorInfoFields(InputType.TYPE_CLASS_TEXT,
         //     IME_ACTION_NONE, IME_FLAG_NO_FULLSCREEN );
         requestNoStatusBarFeature()
+        supportActionBar?.hide()
         super.onCreate(savedInstanceState)
     }
 
@@ -258,17 +259,6 @@ class PlayerActivity : GameActivity() {
                 }
             }
             return result
-        }
-    }
-
-    private fun toggleActionBar() {
-        val actionBar: ActionBar? = supportActionBar
-        if (actionBar != null) {
-            if (actionBar.isShowing) {
-                actionBar.hide()
-            } else {
-                actionBar.show()
-            }
         }
     }
 }
